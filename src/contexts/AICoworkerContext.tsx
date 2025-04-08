@@ -4,10 +4,10 @@ import { GeminiService } from '@/services/gemini';
 import { useFileSystem } from './FileSystemContext';
 
 const DEFAULT_CONFIG: GeminiConfig = {
-  model: 'gemini-pro',
+  model: 'gemini-2.5-pro-preview-03-25',
   apiKey: '',
   temperature: 0.7,
-  maxTokens: 2048,
+  maxTokens: 65536,
 };
 
 interface AICoworkerContextType {
