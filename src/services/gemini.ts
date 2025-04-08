@@ -2,7 +2,7 @@ import { GeminiConfig, FileContext, FileOperation } from '@/types/gemini';
 
 export class GeminiService {
   private config: GeminiConfig;
-  private MODEL_ID = 'gemini-2.5-pro-preview-03-25';
+  private MODEL_ID = 'gemini-2.0-flash-thinking-exp-01-21';
   private API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
   constructor(config: GeminiConfig) {
