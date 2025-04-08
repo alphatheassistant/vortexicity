@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { AIChat } from './AIChat';
 import { useAICoworker } from '@/hooks/useAICoworker';
 import { useEditor } from '@/hooks/useEditor';
@@ -7,31 +7,58 @@ import { useFileSystem } from '@/hooks/useFileSystem';
 export const AICoworker: React.FC = () => {
   const { apiKey } = useAICoworker();
   const { activeFile, files } = useEditor();
-  const { getFileContent } = useFileSystem();
+  const { getFileContent, readFile } = useFileSystem();
+  const [codebaseContext, setCodebaseContext] = useState('');
 
   // Get the current file's content for context
-  const getCurrentFileContent = () => {
+  const getCurrentFileContent = async () => {
     if (!activeFile) return '';
-    return getFileContent(activeFile) || '';
+    try {
+      const content = await readFile(activeFile);
+      return content[0] || '';
+    } catch (error) {
+      console.error('Error reading current file:', error);
+      return '';
+    }
   };
 
   // Get the codebase context
-  const getCodebaseContext = () => {
-    const currentFileContent = getCurrentFileContent();
-    const fileContext = activeFile
-      ? `Current file (${activeFile}):\n${currentFileContent}\n\n`
-      : '';
+  const getCodebaseContext = async () => {
+    try {
+      const currentFileContent = await getCurrentFileContent();
+      const fileContext = activeFile
+        ? `Current file (${activeFile}):\n${currentFileContent}\n\n`
+        : '';
 
-    const otherFiles = files
-      .filter(file => file !== activeFile)
-      .map(file => {
-        const content = getFileContent(file);
-        return `File: ${file}\n${content}\n`;
-      })
-      .join('\n');
+      const otherFiles = await Promise.all(
+        files
+          .filter(file => file !== activeFile)
+          .map(async file => {
+            try {
+              const content = await readFile(file);
+              return `File: ${file}\n${content[0] || ''}\n`;
+            } catch (error) {
+              console.error(`Error reading file ${file}:`, error);
+              return `File: ${file}\n[Error reading file]\n`;
+            }
+          })
+      );
 
-    return `${fileContext}Other files in the project:\n${otherFiles}`;
+      return `${fileContext}Other files in the project:\n${otherFiles.join('\n')}`;
+    } catch (error) {
+      console.error('Error getting codebase context:', error);
+      return 'Error: Unable to get codebase context';
+    }
   };
+
+  // Update codebase context when files or active file changes
+  useEffect(() => {
+    const updateContext = async () => {
+      const context = await getCodebaseContext();
+      setCodebaseContext(context);
+    };
+    updateContext();
+  }, [activeFile, files]);
 
   const handleFileOperation = async (operation: { type: string; path: string; content: string }) => {
     // Handle file operations based on the type
@@ -72,7 +99,7 @@ export const AICoworker: React.FC = () => {
       
       <AIChat
         apiKey={apiKey}
-        codebaseContext={getCodebaseContext()}
+        codebaseContext={codebaseContext}
         onFileOperation={handleFileOperation}
       />
     </div>
