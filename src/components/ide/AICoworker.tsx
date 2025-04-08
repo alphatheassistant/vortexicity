@@ -7,7 +7,7 @@ import { useFileSystem } from '@/hooks/useFileSystem';
 export const AICoworker: React.FC = () => {
   const { apiKey } = useAICoworker();
   const { activeFile, files } = useEditor();
-  const { getFileContent, readFile } = useFileSystem();
+  const { getFileContent, readFile, writeFile, createFile } = useFileSystem();
   const [codebaseContext, setCodebaseContext] = useState('');
 
   // Get the current file's content for context
@@ -25,26 +25,34 @@ export const AICoworker: React.FC = () => {
   // Get the codebase context
   const getCodebaseContext = async () => {
     try {
-      const currentFileContent = await getCurrentFileContent();
-      const fileContext = activeFile
-        ? `Current file (${activeFile}):\n${currentFileContent}\n\n`
-        : '';
-
-      const otherFiles = await Promise.all(
-        files
-          .filter(file => file !== activeFile)
-          .map(async file => {
-            try {
-              const content = await readFile(file);
-              return `File: ${file}\n${content[0] || ''}\n`;
-            } catch (error) {
-              console.error(`Error reading file ${file}:`, error);
-              return `File: ${file}\n[Error reading file]\n`;
-            }
-          })
+      // Get all files in the project
+      const allFiles = await readFile('.');
+      
+      // Get content for each file
+      const fileContents = await Promise.all(
+        allFiles.map(async filePath => {
+          try {
+            const content = await readFile(filePath);
+            return {
+              path: filePath,
+              content: content[0] || ''
+            };
+          } catch (error) {
+            console.error(`Error reading file ${filePath}:`, error);
+            return {
+              path: filePath,
+              content: '[Error reading file]'
+            };
+          }
+        })
       );
 
-      return `${fileContext}Other files in the project:\n${otherFiles.join('\n')}`;
+      // Format the context
+      const formattedContext = fileContents
+        .map(file => `File: ${file.path}\nContent:\n${file.content}\n---\n`)
+        .join('\n');
+
+      return `Project Context:\n${formattedContext}`;
     } catch (error) {
       console.error('Error getting codebase context:', error);
       return 'Error: Unable to get codebase context';
@@ -61,20 +69,49 @@ export const AICoworker: React.FC = () => {
   }, [activeFile, files]);
 
   const handleFileOperation = async (operation: { type: string; path: string; content: string }) => {
-    // Handle file operations based on the type
-    switch (operation.type) {
-      case 'edit':
-        // TODO: Implement file editing
-        console.log('Edit file:', operation.path, operation.content);
-        break;
-      case 'create':
-        // TODO: Implement file creation
-        console.log('Create file:', operation.path, operation.content);
-        break;
-      case 'operation':
-        // TODO: Implement other file operations
-        console.log('File operation:', operation.path, operation.content);
-        break;
+    try {
+      console.log('Handling file operation:', operation);
+      
+      switch (operation.type) {
+        case 'edit':
+          await writeFile(operation.path, operation.content);
+          console.log(`File edited: ${operation.path}`);
+          break;
+        case 'create':
+          // Check if file exists
+          try {
+            await readFile(operation.path);
+            // File exists, update it
+            await writeFile(operation.path, operation.content);
+            console.log(`File updated: ${operation.path}`);
+          } catch (error) {
+            // File doesn't exist, create it
+            const pathParts = operation.path.split('/');
+            const fileName = pathParts.pop() || '';
+            const parentPath = pathParts.join('/');
+            
+            if (!fileName) {
+              throw new Error('Invalid file path');
+            }
+            
+            await createFile(parentPath, fileName, 'file');
+            await writeFile(operation.path, operation.content);
+            console.log(`File created: ${operation.path}`);
+          }
+          break;
+        case 'delete':
+          // TODO: Implement file deletion
+          console.log(`File deletion requested: ${operation.path}`);
+          break;
+        default:
+          console.log(`Unknown operation type: ${operation.type}`);
+      }
+      
+      // Refresh the codebase context after operation
+      const newContext = await getCodebaseContext();
+      setCodebaseContext(newContext);
+    } catch (error) {
+      console.error('Error handling file operation:', error);
     }
   };
 
