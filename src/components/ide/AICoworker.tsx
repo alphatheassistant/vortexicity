@@ -7,7 +7,7 @@ import { useFileSystem } from '@/hooks/useFileSystem';
 export const AICoworker: React.FC = () => {
   const { apiKey } = useAICoworker();
   const { activeFile, files } = useEditor();
-  const { getFileContent, readFile, writeFile, createFile } = useFileSystem();
+  const { getFileContent, readFile, writeFile, createFile, deleteFile } = useFileSystem();
   const [codebaseContext, setCodebaseContext] = useState('');
 
   // Get the current file's content for context
@@ -68,41 +68,74 @@ export const AICoworker: React.FC = () => {
     updateContext();
   }, [activeFile, files]);
 
+  const ensureDirectoryExists = async (filePath: string) => {
+    const parts = filePath.split('/');
+    parts.pop(); // Remove the file name
+    if (parts.length === 0) return;
+
+    let currentPath = '';
+    for (const part of parts) {
+      currentPath = currentPath ? `${currentPath}/${part}` : part;
+      try {
+        await readFile(currentPath);
+      } catch (error) {
+        // Directory doesn't exist, create it
+        await createFile('', currentPath, 'folder');
+      }
+    }
+  };
+
   const handleFileOperation = async (operation: { type: string; path: string; content: string }) => {
     try {
       console.log('Handling file operation:', operation);
       
+      // Normalize the path to use forward slashes
+      const normalizedPath = operation.path.replace(/\\/g, '/').replace(/^\/+/, '');
+      
       switch (operation.type) {
         case 'edit':
-          await writeFile(operation.path, operation.content);
-          console.log(`File edited: ${operation.path}`);
-          break;
-        case 'create':
-          // Check if file exists
+          // Ensure the directory exists
+          await ensureDirectoryExists(normalizedPath);
+          
           try {
-            await readFile(operation.path);
-            // File exists, update it
-            await writeFile(operation.path, operation.content);
-            console.log(`File updated: ${operation.path}`);
+            // Try to read the file first
+            await readFile(normalizedPath);
           } catch (error) {
             // File doesn't exist, create it
-            const pathParts = operation.path.split('/');
+            const pathParts = normalizedPath.split('/');
             const fileName = pathParts.pop() || '';
             const parentPath = pathParts.join('/');
-            
-            if (!fileName) {
-              throw new Error('Invalid file path');
-            }
-            
             await createFile(parentPath, fileName, 'file');
-            await writeFile(operation.path, operation.content);
-            console.log(`File created: ${operation.path}`);
           }
+          
+          // Write the content
+          await writeFile(normalizedPath, operation.content);
+          console.log(`File edited: ${normalizedPath}`);
           break;
+
+        case 'create':
+          // Ensure the directory exists
+          await ensureDirectoryExists(normalizedPath);
+          
+          // Create the file and write content
+          const pathParts = normalizedPath.split('/');
+          const fileName = pathParts.pop() || '';
+          const parentPath = pathParts.join('/');
+          
+          if (!fileName) {
+            throw new Error('Invalid file path');
+          }
+          
+          await createFile(parentPath, fileName, 'file');
+          await writeFile(normalizedPath, operation.content);
+          console.log(`File created: ${normalizedPath}`);
+          break;
+
         case 'delete':
-          // TODO: Implement file deletion
-          console.log(`File deletion requested: ${operation.path}`);
+          await deleteFile(normalizedPath);
+          console.log(`File deleted: ${normalizedPath}`);
           break;
+
         default:
           console.log(`Unknown operation type: ${operation.type}`);
       }
