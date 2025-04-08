@@ -136,7 +136,7 @@ const AICoworker: React.FC = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="gemini-pro">Gemini Pro</SelectItem>
+                      <SelectItem value="gemini-2.5-pro-preview-03-25">Gemini Pro</SelectItem>
                       <SelectItem value="gemini-pro-vision">Gemini Pro Vision</SelectItem>
                     </SelectContent>
                   </Select>
