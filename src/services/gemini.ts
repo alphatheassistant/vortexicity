@@ -1,14 +1,12 @@
-import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
 import { GeminiConfig, FileContext, FileOperation } from '@/types/gemini';
 
 export class GeminiService {
-  private model: GenerativeModel;
   private config: GeminiConfig;
+  private MODEL_ID = 'gemini-2.5-pro-preview-03-25';
+  private API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
   constructor(config: GeminiConfig) {
     this.config = config;
-    const genAI = new GoogleGenerativeAI(config.apiKey);
-    this.model = genAI.getGenerativeModel({ model: config.model });
   }
 
   private parseFileOperations(content: string): FileOperation[] {
@@ -41,30 +39,81 @@ export class GeminiService {
 
     const fullPrompt = `Project Context:\n${contextPrompt}\n\nUser: ${prompt}`;
     
-    const result = await this.model.generateContentStream({
-      contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
+    const requestBody = {
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: fullPrompt
+            }
+          ]
+        }
+      ],
       generationConfig: {
         temperature: this.config.temperature ?? 0.7,
         maxOutputTokens: this.config.maxTokens,
-      },
-    });
+        responseMimeType: "text/plain"
+      }
+    };
 
-    let buffer = '';
-    for await (const chunk of result.stream) {
-      const text = chunk.text();
-      buffer += text;
-      onToken(text);
+    try {
+      const response = await fetch(
+        `${this.API_URL}/${this.MODEL_ID}:streamGenerateContent?key=${this.config.apiKey}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody)
+        }
+      );
 
-      // Check for complete file operations in buffer
-      const operations = this.parseFileOperations(buffer);
-      operations.forEach(op => {
-        onFileOperation(op);
-        // Remove processed operation from buffer
-        buffer = buffer.replace(
-          `<file_${op.type}><path>${op.path}</path>${op.content ? `<content>${op.content}</content>` : ''}</file_${op.type}>`,
-          ''
-        );
-      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('Response body is not readable');
+      }
+
+      let buffer = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        // Convert the chunk to text
+        const chunk = new TextDecoder().decode(value);
+        const lines = chunk.split('\n').filter(line => line.trim());
+        
+        for (const line of lines) {
+          try {
+            const data = JSON.parse(line);
+            if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+              const text = data.candidates[0].content.parts[0].text;
+              buffer += text;
+              onToken(text);
+
+              // Check for complete file operations in buffer
+              const operations = this.parseFileOperations(buffer);
+              operations.forEach(op => {
+                onFileOperation(op);
+                // Remove processed operation from buffer
+                buffer = buffer.replace(
+                  `<file_${op.type}><path>${op.path}</path>${op.content ? `<content>${op.content}</content>` : ''}</file_${op.type}>`,
+                  ''
+                );
+              });
+            }
+          } catch (e) {
+            console.error('Error parsing chunk:', e);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error in stream response:', error);
+      throw error;
     }
   }
 } 
