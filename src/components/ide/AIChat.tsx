@@ -62,46 +62,76 @@ export const AIChat: React.FC<AIChatProps> = ({
     }
   }, [chatHistory]);
 
+  // Extract actual code content from a diff block
+  const extractCodeFromDiff = (diffContent: string): string => {
+    const lines = diffContent.split('\n');
+    let actualCode = '';
+    
+    // Skip the first 4 lines if they contain diff headers
+    let startIndex = 0;
+    if (lines[0]?.startsWith('---') && lines[1]?.startsWith('+++')) {
+      startIndex = 2;
+      if (lines[2]?.startsWith('@@')) {
+        startIndex = 3;
+      }
+    }
+
+    // Process remaining lines
+    for (let i = startIndex; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.startsWith('+')) {
+        // Add new lines (remove the + prefix)
+        actualCode += line.substring(1) + '\n';
+      } else if (!line.startsWith('-')) {
+        // Keep unchanged lines
+        actualCode += line + '\n';
+      }
+      // Skip removed lines (starting with -)
+    }
+
+    return actualCode.trim();
+  };
+
   // Parse file operations from the response
   const parseFileOperations = (content: string) => {
     const operations: { type: string; path: string; content: string }[] = [];
     
-    // First try to match the edit:filepath format
-    const editRegex = /```(?:typescript|javascript|tsx|jsx)?\s*edit:(.*?)\n([\s\S]*?)```/g;
+    // Match patterns for both regular code blocks and diff blocks
+    const codeBlockRegex = /```(?:(?:typescript|javascript|tsx|jsx|diff)?\s*(?:edit|create):([^\n]+)\n([\s\S]*?)```)/g;
     let match;
     
-    while ((match = editRegex.exec(content)) !== null) {
-      const [_, path, codeContent] = match;
+    while ((match = codeBlockRegex.exec(content)) !== null) {
+      const [fullMatch, path, codeContent] = match;
       if (path && codeContent) {
+        const isDiff = fullMatch.includes('```diff') || codeContent.startsWith('---') || codeContent.includes('\n---');
+        const finalContent = isDiff ? extractCodeFromDiff(codeContent) : codeContent;
+        
+        // Normalize the path
+        const normalizedPath = path.trim()
+          .replace(/^["']|["']$/g, '') // Remove quotes if present
+          .replace(/^\/+/, ''); // Remove leading slashes
+        
+        // Determine if it's a new file or edit based on path and content
+        const type = normalizedPath.includes('/my-project/') ? 
+          normalizedPath.replace('/my-project/', '') : 
+          normalizedPath;
+
         operations.push({
           type: 'edit',
-          path: path.trim(),
-          content: codeContent.trim()
+          path: type,
+          content: finalContent.trim()
         });
       }
     }
 
-    // Then try to match the create:filepath format
-    const createRegex = /```(?:typescript|javascript|tsx|jsx)?\s*create:(.*?)\n([\s\S]*?)```/g;
-    while ((match = createRegex.exec(content)) !== null) {
-      const [_, path, codeContent] = match;
-      if (path && codeContent) {
-        operations.push({
-          type: 'create',
-          path: path.trim(),
-          content: codeContent.trim()
-        });
-      }
-    }
-
-    // Finally try to match the delete:filepath format
-    const deleteRegex = /```delete:(.*?)```/g;
+    // Match delete operations
+    const deleteRegex = /```delete:([^\n]+)```/g;
     while ((match = deleteRegex.exec(content)) !== null) {
       const [_, path] = match;
       if (path) {
         operations.push({
           type: 'delete',
-          path: path.trim(),
+          path: path.trim().replace(/^\/+/, ''),
           content: ''
         });
       }
