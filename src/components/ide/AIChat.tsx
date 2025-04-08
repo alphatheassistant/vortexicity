@@ -44,6 +44,15 @@ export const AIChat: React.FC<AIChatProps> = ({
         }
         return [...prev, { role: 'assistant', content: streamingResponse }];
       });
+
+      // Try to parse and execute file operations from streaming response
+      const operations = parseFileOperations(streamingResponse);
+      if (operations.length > 0) {
+        operations.forEach(operation => {
+          console.log('Executing operation from stream:', operation);
+          onFileOperation(operation);
+        });
+      }
     }
   }, [streamingResponse]);
 
@@ -57,17 +66,45 @@ export const AIChat: React.FC<AIChatProps> = ({
   const parseFileOperations = (content: string) => {
     const operations: { type: string; path: string; content: string }[] = [];
     
-    // Match patterns like ```edit:path/to/file``` followed by code
-    const regex = /```(edit|create|delete):([^\n]+)\n([\s\S]*?)```/g;
+    // First try to match the edit:filepath format
+    const editRegex = /```(?:typescript|javascript|tsx|jsx)?\s*edit:(.*?)\n([\s\S]*?)```/g;
     let match;
     
-    while ((match = regex.exec(content)) !== null) {
-      const [_, type, path, codeContent] = match;
-      operations.push({
-        type,
-        path: path.trim(),
-        content: codeContent.trim()
-      });
+    while ((match = editRegex.exec(content)) !== null) {
+      const [_, path, codeContent] = match;
+      if (path && codeContent) {
+        operations.push({
+          type: 'edit',
+          path: path.trim(),
+          content: codeContent.trim()
+        });
+      }
+    }
+
+    // Then try to match the create:filepath format
+    const createRegex = /```(?:typescript|javascript|tsx|jsx)?\s*create:(.*?)\n([\s\S]*?)```/g;
+    while ((match = createRegex.exec(content)) !== null) {
+      const [_, path, codeContent] = match;
+      if (path && codeContent) {
+        operations.push({
+          type: 'create',
+          path: path.trim(),
+          content: codeContent.trim()
+        });
+      }
+    }
+
+    // Finally try to match the delete:filepath format
+    const deleteRegex = /```delete:(.*?)```/g;
+    while ((match = deleteRegex.exec(content)) !== null) {
+      const [_, path] = match;
+      if (path) {
+        operations.push({
+          type: 'delete',
+          path: path.trim(),
+          content: ''
+        });
+      }
     }
     
     return operations;
@@ -83,15 +120,15 @@ export const AIChat: React.FC<AIChatProps> = ({
 
     const result = await sendMessage(userMessage);
     
-    // Parse and execute file operations
+    // Parse and execute file operations from final response
     if (result?.response) {
       const operations = parseFileOperations(result.response);
-      console.log('Parsed file operations:', operations);
+      console.log('Parsed file operations from final response:', operations);
       
       // Execute each file operation
       for (const operation of operations) {
         console.log('Executing operation:', operation);
-        onFileOperation(operation);
+        await onFileOperation(operation);
       }
     }
   };
