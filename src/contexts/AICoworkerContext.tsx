@@ -5,7 +5,7 @@ import { useFileSystem } from './FileSystemContext';
 
 const DEFAULT_CONFIG: GeminiConfig = {
   model: 'gemini-2.5-pro-preview-03-25',
-  apiKey: '',
+  apiKey: 'AIzaSyBbt5ppyW3UiYjeA08XbnJNE4b5Z8TWM2M',
   temperature: 0.7,
   maxTokens: 65536,
 };
