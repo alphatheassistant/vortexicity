@@ -4,10 +4,10 @@ import { GeminiService } from '@/services/gemini';
 import { useFileSystem } from './FileSystemContext';
 
 const DEFAULT_CONFIG: GeminiConfig = {
-  model: 'gemini-2.5-pro-preview-03-25',
-  apiKey: 'AIzaSyBbt5ppyW3UiYjeA08XbnJNE4b5Z8TWM2M',
+  model: 'gemini-pro',
+  apiKey: '',
   temperature: 0.7,
-  maxTokens: 65536,
+  maxTokens: 2048,
 };
 
 interface AICoworkerContextType {
@@ -15,6 +15,7 @@ interface AICoworkerContextType {
   config: GeminiConfig;
   isTyping: boolean;
   activeFile: string | null;
+  apiKey: string;
   sendMessage: (content: string) => Promise<void>;
   updateConfig: (newConfig: Partial<GeminiConfig>) => void;
   copyToClipboard: (content: string, messageId: string) => Promise<void>;
@@ -157,6 +158,7 @@ export const AICoworkerProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         config,
         isTyping,
         activeFile,
+        apiKey: config.apiKey,
         sendMessage,
         updateConfig,
         copyToClipboard,

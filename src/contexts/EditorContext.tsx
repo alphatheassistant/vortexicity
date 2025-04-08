@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { editor } from 'monaco-editor';
 import { useFileSystem } from './FileSystemContext';
@@ -13,7 +12,7 @@ interface TabInfo {
   content?: string; // Store content per tab
 }
 
-interface EditorContextType {
+export interface EditorContextType {
   openedTabs: TabInfo[];
   activeTabId: string | null;
   monacoInstance: editor.IStandaloneCodeEditor | null;
@@ -42,7 +41,7 @@ const STORAGE_KEY_PREFIX = 'code-editor-tab-';
 const TABS_STORAGE_KEY = 'code-editor-tabs';
 const ACTIVE_TAB_KEY = 'code-editor-active-tab';
 
-const EditorContext = createContext<EditorContextType | undefined>(undefined);
+export const EditorContext = createContext<EditorContextType | undefined>(undefined);
 
 export const EditorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { getFileById, updateFileContent, selectFile } = useFileSystem();

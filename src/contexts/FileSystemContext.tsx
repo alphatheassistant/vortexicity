@@ -23,7 +23,7 @@ export interface Log {
   timestamp: Date;
 }
 
-interface FileSystemContextType {
+export interface FileSystemContextType {
   files: FileSystemItem[];
   selectedFile: string | null;
   logs: Log[];
@@ -46,8 +46,7 @@ interface FileSystemContextType {
   openFile: (path: string) => Promise<void>;
 }
 
-const FileSystemContext = createContext<FileSystemContextType | undefined>(undefined);
-
+export const FileSystemContext = createContext<FileSystemContextType | undefined>(undefined);
 
 // Helper function to determine language based on file extension
 const getLanguageFromExtension = (filename: string): string => {
@@ -125,9 +124,6 @@ const getLanguageFromExtension = (filename: string): string => {
   
   return extensionMap[extension] || 'plaintext';
 };
-
-
-
 
 // Sample initial file system
 const initialFileSystem: FileSystemItem[] = [

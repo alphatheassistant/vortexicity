@@ -1,8 +1,8 @@
 import React from 'react';
 import { AIChat } from './AIChat';
 import { useAICoworker } from '@/hooks/useAICoworker';
-import { useEditor } from '@/contexts/EditorContext';
-import { useFileSystem } from '@/contexts/FileSystemContext';
+import { useEditor } from '@/hooks/useEditor';
+import { useFileSystem } from '@/hooks/useFileSystem';
 
 export const AICoworker: React.FC = () => {
   const { apiKey } = useAICoworker();
