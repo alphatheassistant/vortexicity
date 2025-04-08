@@ -53,6 +53,26 @@ export const AIChat: React.FC<AIChatProps> = ({
     }
   }, [chatHistory]);
 
+  // Parse file operations from the response
+  const parseFileOperations = (content: string) => {
+    const operations: { type: string; path: string; content: string }[] = [];
+    
+    // Match patterns like ```edit:path/to/file``` followed by code
+    const regex = /```(edit|create|delete):([^\n]+)\n([\s\S]*?)```/g;
+    let match;
+    
+    while ((match = regex.exec(content)) !== null) {
+      const [_, type, path, codeContent] = match;
+      operations.push({
+        type,
+        path: path.trim(),
+        content: codeContent.trim()
+      });
+    }
+    
+    return operations;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim() || isLoading) return;
@@ -62,8 +82,17 @@ export const AIChat: React.FC<AIChatProps> = ({
     setChatHistory(prev => [...prev, { role: 'user', content: userMessage }]);
 
     const result = await sendMessage(userMessage);
-    if (result?.fileOperations) {
-      result.fileOperations.forEach(onFileOperation);
+    
+    // Parse and execute file operations
+    if (result?.response) {
+      const operations = parseFileOperations(result.response);
+      console.log('Parsed file operations:', operations);
+      
+      // Execute each file operation
+      for (const operation of operations) {
+        console.log('Executing operation:', operation);
+        onFileOperation(operation);
+      }
     }
   };
 
