@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import FileExplorer from './FileExplorer';
 import EditorArea from './EditorArea';
-import AICoworker from './AICoworker';
+import { AICoworker } from './AICoworker';
 import StatusBar from './StatusBar';
 import TerminalPanel from './TerminalPanel';
 import CommandPalette from './CommandPalette';
