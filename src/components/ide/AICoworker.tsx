@@ -6,7 +6,7 @@ import { useFileSystem } from '@/hooks/useFileSystem';
 
 export const AICoworker: React.FC = () => {
   const { apiKey } = useAICoworker();
-  const { activeFile, files } = useEditor();
+  const { activeFile, files, openFile, refreshFile } = useEditor();
   const { getFileContent, readFile, writeFile, createFile, deleteFile } = useFileSystem();
   const [codebaseContext, setCodebaseContext] = useState('');
 
@@ -111,6 +111,14 @@ export const AICoworker: React.FC = () => {
           // Write the content
           await writeFile(normalizedPath, operation.content);
           console.log(`File edited: ${normalizedPath}`);
+
+          // If the file is currently open in the editor, refresh it
+          if (files.includes(normalizedPath)) {
+            await refreshFile(normalizedPath);
+          }
+          
+          // Open the file in the editor if it's not already open
+          await openFile(normalizedPath);
           break;
 
         case 'create':
@@ -129,6 +137,9 @@ export const AICoworker: React.FC = () => {
           await createFile(parentPath, fileName, 'file');
           await writeFile(normalizedPath, operation.content);
           console.log(`File created: ${normalizedPath}`);
+          
+          // Open the newly created file
+          await openFile(normalizedPath);
           break;
 
         case 'delete':
